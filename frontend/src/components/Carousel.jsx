@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { asset } from '../lib/asset';
 
 export default function Carousel({ items, onOpen }) {
   const visible = 4;
@@ -30,12 +31,12 @@ export default function Carousel({ items, onOpen }) {
             <div key={c.id} onClick={() => onOpen(c)}
               className="group relative flex h-[200px] min-w-[calc(25%-12px)] cursor-pointer flex-col overflow-hidden rounded border border-[#222] bg-[#0d0d0d]">
               <div className="relative flex-1 overflow-hidden">
-                <img src={c.img} alt={c.title}
+                <img src={asset(c.img)} alt={c.title}
                   loading="lazy"
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                 {/* hover overlay: brand logo + car type & spec */}
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-[#1e3a6b]/80 px-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                  <img src="./garageboy-logo-trans.png" alt="GARAGE BOY" className="h-[52px] w-auto object-contain drop-shadow" />
+                  <img src={asset('/garageboy-logo-trans.png')} alt="GARAGE BOY" className="h-[52px] w-auto object-contain drop-shadow" />
                   <span className="h-6 w-px bg-white/70" />
                   <div className="text-center">
                     <div className="text-[15px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{c.title}</div>

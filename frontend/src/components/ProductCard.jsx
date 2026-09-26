@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link2 } from 'lucide-react';
+import { asset } from '../lib/asset';
 
 export default function ProductCard({ product, onClick }) {
   return (
@@ -9,7 +10,7 @@ export default function ProductCard({ product, onClick }) {
     >
       <div className="relative h-[190px] overflow-hidden bg-[#0d0d0d]">
         <img
-          src={product.img}
+          src={asset(product.img)}
           alt={product.name}
           loading="lazy"
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"

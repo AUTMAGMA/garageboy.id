@@ -1,5 +1,6 @@
 import React from 'react';
 import { BRANDS } from '../catalogData';
+import { asset } from '../lib/asset';
 
 export default function HotBrands({ onOpenBrand }) {
   const brands = BRANDS.filter((b) => b.key !== 'all');
@@ -15,7 +16,7 @@ export default function HotBrands({ onOpenBrand }) {
           >
             <div className="mx-auto mb-2 flex h-[50px] w-[90px] items-center justify-center transition-transform duration-200 group-hover:-translate-y-1">
               <img
-                src={`/brands/${b.key}.svg`}
+                src={asset(`/brands/${b.key}.svg`)}
                 alt={b.label}
                 className="max-h-full max-w-full object-contain opacity-80 transition-opacity group-hover:opacity-100"
               />

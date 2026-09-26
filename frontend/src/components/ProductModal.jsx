@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
+import { asset } from '../lib/asset';
 
 export default function ProductModal({ product, onClose }) {
   const [tab, setTab] = useState('photo'); // 'photo' | 'parts'
@@ -50,13 +51,13 @@ export default function ProductModal({ product, onClose }) {
         {/* body */}
         {tab === 'photo' ? (
           <div className="flex flex-1 items-center justify-center overflow-auto bg-[#0d0d0d] p-4">
-            <img src={product.img} alt={product.name} className="max-h-[62vh] w-full object-contain" />
+            <img src={asset(product.img)} alt={product.name} className="max-h-[62vh] w-full object-contain" />
           </div>
         ) : (
           <>
             <div className={`relative flex-1 overflow-auto bg-white ${zoom ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
               onClick={() => setZoom((z) => !z)}>
-              <img src={sheets[page]} alt={`part list ${page + 1}`}
+              <img src={asset(sheets[page])} alt={`part list ${page + 1}`}
                 className={`mx-auto ${zoom ? 'w-[160%] max-w-none' : 'w-full'} transition-[width] duration-200`} />
               <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1 rounded bg-black/60 px-2 py-1 text-[11px] text-white">
                 <ZoomIn size={12} /> {zoom ? 'Click to fit' : 'Click to zoom'}

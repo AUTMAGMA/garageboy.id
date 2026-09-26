@@ -1,21 +1,19 @@
-/**
- * Resolve local public assets correctly on localhost and GitHub Pages.
- */
+/** Resolve public assets for both a domain root and a GitHub Pages project path. */
 export function asset(path) {
-  if (!path || typeof path !== 'string') return '';
+  if (typeof path !== 'string' || !path) return '';
+  if (/^(?:[a-z]+:|\/\/|data:|blob:)/i.test(path)) return path;
 
-  // Jangan ubah URL external / data URL
-  if (/^(https?:|data:|blob:|\/\/)/i.test(path)) {
-    return path;
-  }
+  const publicUrl = process.env.PUBLIC_URL || '';
+  const configuredPath = publicUrl
+    ? new URL(publicUrl, window.location.origin).pathname.replace(/\/$/, '')
+    : '';
+  const currentPath = window.location.pathname;
+  const isHostedAtConfiguredPath = configuredPath
+    && (currentPath === configuredPath || currentPath.startsWith(`${configuredPath}/`));
+  const basePath = isHostedAtConfiguredPath ? configuredPath : '';
+  const relativePath = path.replace(/^(?:\.\/|\/)+/, '');
 
-  // Hilangkan ./ atau / di awal
-  const clean = path.replace(/^\.\//, '').replace(/^\//, '');
-
-  // PUBLIC_URL akan menjadi /garageboy.id saat production build
-  const base = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
-
-  return `${base}/${clean}`;
+  return `${basePath}/${relativePath}`;
 }
 
-export default asset;s
+export default asset;

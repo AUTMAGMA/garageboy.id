@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { asset } from '../lib/asset';
 
 function Admin() {
   const [products, setProducts] = useState([]);
@@ -241,7 +242,7 @@ function Admin() {
           ) : (
             products.map((item) => (
               <div key={item.id} className="bg-[#111] border border-[#222] p-4 rounded-lg flex items-center gap-4">
-                <img src={item.img} alt="Cover" className="w-14 h-14 object-cover rounded bg-[#222]" />
+                <img src={asset(item.img)} alt="Cover" className="w-14 h-14 object-cover rounded bg-[#222]" />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm truncate">{item.name}</h3>
                   <p className="text-xs text-red-500 uppercase">Brand: {item.brand} | Mod: {item.modLabel}</p>
