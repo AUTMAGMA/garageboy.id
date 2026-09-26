@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/garageboy.id/static/css/main.c80fc77b.css",
+    "main.js": "/garageboy.id/static/js/main.65c73e6c.js",
+    "index.html": "/garageboy.id/index.html",
+    "main.c80fc77b.css.map": "/garageboy.id/static/css/main.c80fc77b.css.map",
+    "main.65c73e6c.js.map": "/garageboy.id/static/js/main.65c73e6c.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.c80fc77b.css",
+    "static/js/main.65c73e6c.js"
+  ]
+}
