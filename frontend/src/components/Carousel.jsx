@@ -35,7 +35,7 @@ export default function Carousel({ items, onOpen }) {
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                 {/* hover overlay: brand logo + car type & spec */}
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-[#1e3a6b]/80 px-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                  <img src="/garageboy-logo-trans.png" alt="GARAGE BOY" className="h-[52px] w-auto object-contain drop-shadow" />
+                  <img src="./garageboy-logo-trans.png" alt="GARAGE BOY" className="h-[52px] w-auto object-contain drop-shadow" />
                   <span className="h-6 w-px bg-white/70" />
                   <div className="text-center">
                     <div className="text-[15px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{c.title}</div>

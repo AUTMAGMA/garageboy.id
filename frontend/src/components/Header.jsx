@@ -11,7 +11,7 @@ export default function Header({ onLogoClick, searchTerm, setSearchTerm, onSearc
     <header className="sticky top-0 z-[100] flex items-center justify-between gap-4 border-b border-[#222] bg-black px-[5%] py-3">
       {/* Logo */}
       <div className="flex cursor-pointer items-center gap-3 shrink-0" onClick={onLogoClick}>
-        <img src="/garageboy-logo.png" alt="GARAGE BOY" className="h-[46px] w-auto object-contain" />
+        <img src="./garageboy-logo.png" alt="GARAGE BOY" className="h-[46px] w-auto object-contain" />
         <div className="hidden leading-tight sm:block fade-up">
           <h1 className="m-0 text-[16px] font-bold tracking-[1px] text-white">garageboy.id</h1>
           <p className="m-0 text-[10px] tracking-[1px] text-[#888]">AUTO BODY KIT CATALOG</p>

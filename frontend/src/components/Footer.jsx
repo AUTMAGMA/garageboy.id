@@ -17,7 +17,7 @@ export default function Footer() {
         <div className="grid gap-10 md:grid-cols-2">
           {/* Brand */}
           <div className="fade-up">
-            <img src="/garageboy-logo-trans.png" alt="Garage Boy" className="h-16 w-auto object-contain" />
+            <img src="./garageboy-logo-trans.png" alt="Garage Boy" className="h-16 w-auto object-contain" />
             <p className="mt-4 text-sm leading-relaxed text-white/50">
               Direct Source. Proper Parts. Reasonable Price.
             </p>
