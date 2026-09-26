@@ -22,8 +22,8 @@ class FakeProductsCollection:
         self.last_query = None
 
     def find(self, query):
-        assert query == {}
-        return FakeCursor(self.documents)
+        assert query == {'published': {'$ne': False}}
+        return FakeCursor([document for document in self.documents if document.get('published') is not False])
 
     async def find_one(self, query):
         self.last_query = query
@@ -100,9 +100,10 @@ def test_get_products_returns_existing_fields_and_string_ids(monkeypatch):
     assert status == 200
     assert body['total_products'] == 2
     assert body['data'][0] == {
-        'id': 'bmw-3', 'brand': 'bmw', 'name': 'BMW 3 Kit', 'img': '/catalog/bmw.jpg', 'sheets': []
+        'id': 'bmw-3', 'brand': 'bmw', 'name': 'BMW 3 Kit', 'img': '/catalog/bmw.jpg', 'sheets': [], 'desc': ''
     }
     assert body['data'][1]['id']
+    assert body['data'][1]['desc'] == ''
     assert '_id' not in body['data'][0]
 
 
@@ -113,7 +114,7 @@ def test_get_product_by_existing_id(monkeypatch):
     status, body = asgi_get('/api/products/benz-g')
 
     assert status == 200
-    assert body == {'id': 'benz-g', 'brand': 'benz', 'name': 'G Class Kit'}
+    assert body == {'id': 'benz-g', 'brand': 'benz', 'name': 'G Class Kit', 'desc': ''}
 
 
 def test_get_product_by_mongodb_id_for_legacy_document(monkeypatch):
@@ -124,7 +125,7 @@ def test_get_product_by_mongodb_id_for_legacy_document(monkeypatch):
     status, body = asgi_get(f'/api/products/{mongo_id}')
 
     assert status == 200
-    assert body == {'id': str(mongo_id), 'name': 'Legacy product'}
+    assert body == {'id': str(mongo_id), 'name': 'Legacy product', 'desc': ''}
 
 
 def test_get_missing_product_returns_404(monkeypatch):

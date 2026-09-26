@@ -933,10 +933,16 @@ async def get_vehicle_generations(model_id: Optional[str] = None):
 # Include the router in the main app
 app.include_router(api_router)
 
+cors_origins = [
+    origin.strip().rstrip('/')
+    for origin in os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',')
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
 )
