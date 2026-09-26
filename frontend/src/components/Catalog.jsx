@@ -1,5 +1,17 @@
 import React, { useMemo } from 'react';
-import { BRANDS, MODS } from '../catalogData';
+import {
+  catalogOptions,
+  matchesCatalogFilters,
+  productBrandId,
+  productBrandLabel,
+  productCategoryId,
+  productCategoryLabel,
+  productGenerationId,
+  productGenerationLabel,
+  productMatchesSearch,
+  productSeriesId,
+  productSeriesLabel,
+} from '../lib/catalogFilters';
 import ProductCard from './ProductCard';
 
 function Row({ label, options, value, onSelect, valueKey = 'key', labelKey = 'label' }) {
@@ -24,43 +36,50 @@ function Row({ label, options, value, onSelect, valueKey = 'key', labelKey = 'la
   );
 }
 
-export default function Catalog({ filters, setFilter, onOpen, products = [], loading = false, error = null }) {
+export default function Catalog({ filters, setFilter, onOpen, products = [], loading = false, error = null, searchTerm = '' }) {
   const { brand, series, model, mod } = filters;
 
-  // dynamic series options for the selected brand
+  const brandOptions = useMemo(
+    () => catalogOptions(products, productBrandId, productBrandLabel),
+    [products]
+  );
+
   const seriesOptions = useMemo(() => {
-    const list = products.filter((p) => brand === 'all' || p.brand === brand);
-    const seen = new Map();
-    list.forEach((p) => { if (!seen.has(p.seriesLabel)) seen.set(p.seriesLabel, true); });
-    return [{ key: 'all', label: 'All' }, ...[...seen.keys()].map((s) => ({ key: s, label: s }))];
+    const list = products.filter((product) => brand === 'all' || String(productBrandId(product)) === String(brand));
+    return catalogOptions(list, productSeriesId, productSeriesLabel);
   }, [products, brand]);
 
-  // dynamic model options for brand + series
   const modelOptions = useMemo(() => {
-    const list = products.filter((p) =>
-      (brand === 'all' || p.brand === brand) && (series === 'all' || p.seriesLabel === series));
-    const seen = new Map();
-    list.forEach((p) => { if (p.modelLabel && !seen.has(p.modelLabel)) seen.set(p.modelLabel, true); });
-    return [{ key: 'all', label: 'All' }, ...[...seen.keys()].map((m) => ({ key: m, label: m }))];
+    const list = products.filter((product) => (
+      (brand === 'all' || String(productBrandId(product)) === String(brand))
+      && (series === 'all' || String(productSeriesId(product)) === String(series))
+    ));
+    return catalogOptions(list, productGenerationId, productGenerationLabel);
   }, [products, brand, series]);
 
+  const categoryOptions = useMemo(() => {
+    const list = products.filter((product) => (
+      (brand === 'all' || String(productBrandId(product)) === String(brand))
+      && (series === 'all' || String(productSeriesId(product)) === String(series))
+      && (model === 'all' || String(productGenerationId(product)) === String(model))
+    ));
+    return catalogOptions(list, productCategoryId, productCategoryLabel);
+  }, [products, brand, series, model]);
+
   const items = useMemo(() => products.filter((p) =>
-    (brand === 'all' || p.brand === brand) &&
-    (series === 'all' || p.seriesLabel === series) &&
-    (model === 'all' || p.modelLabel === model) &&
-    (mod === 'all' || p.mod === mod)
-  ), [products, brand, series, model, mod]);
+    matchesCatalogFilters(p, filters) && (!searchTerm.trim() || productMatchesSearch(p, searchTerm))
+  ), [products, filters, searchTerm]);
 
   return (
     <div className="mx-auto my-8 w-[90%] max-w-[1280px]">
       <div className="mb-8 rounded border border-[#222] bg-[#0b0b0b] px-6 py-3">
-        <Row label="Brand:" options={BRANDS} value={brand}
-          onSelect={(v) => setFilter({ brand: v, series: 'all', model: 'all', mod })} />
+        <Row label="Brand:" options={brandOptions} value={brand}
+          onSelect={(v) => setFilter({ brand: v, series: 'all', model: 'all', mod: 'all' })} />
         <Row label="Series:" options={seriesOptions} value={series}
-          onSelect={(v) => setFilter({ brand, series: v, model: 'all', mod })} />
+          onSelect={(v) => setFilter({ brand, series: v, model: 'all', mod: 'all' })} />
         <Row label="Model:" options={modelOptions} value={model}
-          onSelect={(v) => setFilter({ brand, series, model: v, mod })} />
-        <Row label="Mod:" options={MODS} value={mod}
+          onSelect={(v) => setFilter({ brand, series, model: v, mod: 'all' })} />
+        <Row label="Mod:" options={categoryOptions} value={mod}
           onSelect={(v) => setFilter({ brand, series, model, mod: v })} />
       </div>
 

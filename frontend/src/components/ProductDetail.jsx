@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ArrowLeft, ZoomIn, Wrench, Layers } from 'lucide-react';
-import { BRANDS } from '../catalogData';
 import { productImageSrc, useFallbackImage } from '../lib/productImage';
-
-function brandLabel(key) {
-  const b = BRANDS.find((x) => x.key === key);
-  return b ? b.label : key;
-}
+import { productBrandLabel } from '../lib/catalogFilters';
 
 export default function ProductDetail({ product, related, onBack, onOpenProduct }) {
   const [page, setPage] = useState(0);
@@ -23,7 +18,7 @@ export default function ProductDetail({ product, related, onBack, onOpenProduct 
   const total = sheets.length;
 
   const specs = [
-    { label: 'Brand', value: brandLabel(product.brand) },
+    { label: 'Brand', value: productBrandLabel(product) },
     { label: 'Series', value: product.seriesLabel },
     { label: 'Model / Year', value: product.modelLabel || '-' },
     { label: 'Part Type', value: product.modLabel },
@@ -47,7 +42,7 @@ export default function ProductDetail({ product, related, onBack, onOpenProduct 
 
         {/* Info */}
         <div className="fade-up d2">
-          <p className="text-[12px] uppercase tracking-widest text-[#E31837]">{brandLabel(product.brand)}</p>
+          <p className="text-[12px] uppercase tracking-widest text-[#E31837]">{productBrandLabel(product)}</p>
           <h1 className="mt-1 text-[28px] font-bold leading-tight text-white">{product.name}</h1>
           <p className="mt-2 text-[14px] text-[#aaa]">{product.desc}</p>
 

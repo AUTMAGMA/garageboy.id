@@ -43,7 +43,7 @@ export default function Carousel({ items, onOpen }) {
                   <div className="text-center">
                     <div className="text-[15px] font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{c.title}</div>
                     {c.sub && <div className="mt-0.5 text-[12px] text-white/85">{c.sub}</div>}
-                    <div className="mt-1 text-[10px] uppercase tracking-wider text-[#ff9db0]">Full Body Kit</div>
+                    <div className="mt-1 text-[10px] uppercase tracking-wider text-[#ff9db0]">{c.button_text || 'Full Body Kit'}</div>
                   </div>
                 </div>
               </div>

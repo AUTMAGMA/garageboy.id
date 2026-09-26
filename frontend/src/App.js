@@ -11,8 +11,9 @@ import ProductModal from './components/ProductModal';
 import Footer from './components/Footer';
 import Admin from './components/Admin';
 
-import { PRODUCTS as initialProducts, FEATURED } from './catalogData';
-import { fetchProducts } from './lib/productsApi';
+import { PRODUCTS as initialProducts } from './catalogData';
+import { fetchProducts, fetchHotBrands, fetchLatestModifications, fetchHomeCarousel } from './lib/productsApi';
+import { filtersFromCarouselDestination, matchesCatalogFilters, productMatchesSearch } from './lib/catalogFilters';
 
 const DEFAULT_FILTERS = {
   brand: 'all',
@@ -31,23 +32,9 @@ function readSavedProducts() {
   }
 }
 
-function mergeProducts(fallbackProducts, apiProducts) {
-  const byId = new Map();
-  [...fallbackProducts, ...apiProducts].forEach((product, index) => {
-    if (product && typeof product === 'object') {
-      const key = product.id ? String(product.id) : `missing-id-${index}`;
-      byId.set(key, product);
-    }
-  });
-  return [...byId.values()];
-}
-
-function searchProducts(products, query) {
-  const normalizedQuery = query.trim().toLowerCase();
+function searchProducts(products, query, filters = DEFAULT_FILTERS) {
   return products.filter((product) => (
-    `${product.name || ''} ${product.desc || ''} ${product.seriesLabel || ''} ${product.modelLabel || ''} ${product.brand || ''}`
-      .toLowerCase()
-      .includes(normalizedQuery)
+    matchesCatalogFilters(product, filters) && productMatchesSearch(product, query)
   ));
 }
 
@@ -67,17 +54,20 @@ function App() {
   const [products, setProducts] = useState(fallbackProducts);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState(null);
+  const [hotBrands, setHotBrands] = useState([]);
+  const [latestProducts, setLatestProducts] = useState([]);
+  const [carouselItems, setCarouselItems] = useState([]);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchProducts(controller.signal)
       .then((apiProducts) => {
-        setProducts(mergeProducts(fallbackProducts, apiProducts));
+        setProducts(apiProducts);
         setProductsError(null);
       })
       .catch((error) => {
         if (error.name === 'AbortError') return;
-        setProducts(mergeProducts(fallbackProducts, []));
+        setProducts(fallbackProducts);
         setProductsError(error.message);
       })
       .finally(() => {
@@ -88,37 +78,24 @@ function App() {
   }, [fallbackProducts]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    fetchHotBrands(controller.signal).then(setHotBrands).catch(() => setHotBrands([]));
+    fetchLatestModifications(controller.signal).then(setLatestProducts).catch(() => setLatestProducts([]));
+    fetchHomeCarousel(controller.signal).then((items) => setCarouselItems(items.map((item) => ({
+      ...item,
+      img: item.image_url,
+      sub: item.subtitle || '',
+    })))).catch(() => setCarouselItems([]));
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
     if (view === 'search' && searchTerm.trim()) {
-      setSearchResults(searchProducts(products, searchTerm));
+      setSearchResults(searchProducts(products, searchTerm, filters));
     }
-  }, [products, searchTerm, view]);
+  }, [products, searchTerm, filters, view]);
 
-  /*
-   * Produk yang ditampilkan pada bagian
-   * Latest Modifications
-   */
-  const popular = useMemo(() => {
-    const ids = [
-      'mustang-1522',
-      'camaro-1623',
-      'challenger',
-      'bmw-3',
-      'benz-g',
-      'honda',
-      'corvette-c8',
-      'escalade-2124'
-    ];
-
-    return ids
-      .map((cid) =>
-        products.find(
-          (p) =>
-            p.series === cid &&
-            p.mod === 'bodykit'
-        )
-      )
-      .filter(Boolean);
-  }, [products]);
+  const popular = useMemo(() => latestProducts, [latestProducts]);
 
   /*
    * ============================================================
@@ -177,17 +154,11 @@ function App() {
    */
 
   const openFromCarousel = (c) => {
-    const product = PRODUCTS.find(
-      (p) => p.series === c.id
-    );
-
-    const brand = product?.brand || 'all';
-
-    setFilters({
-      ...DEFAULT_FILTERS,
-      brand,
-      series: c.title
-    });
+    if (c.destination_type === 'custom_url' && c.destination?.custom_url) {
+      window.location.assign(c.destination.custom_url);
+      return;
+    }
+    setFilters(filtersFromCarouselDestination(c));
 
     setSearchResults(null);
     setView('catalog');
@@ -211,7 +182,7 @@ function App() {
       return;
     }
 
-    const res = searchProducts(products, q);
+    const res = searchProducts(products, q, filters);
 
     setSearchResults(res);
     setView('search');
@@ -247,7 +218,7 @@ function App() {
 
           <div className="fade-up">
             <Carousel
-              items={FEATURED}
+              items={carouselItems}
               onOpen={openFromCarousel}
             />
           </div>
@@ -259,6 +230,7 @@ function App() {
           <div className="fade-up">
             <HotBrands
               onOpenBrand={openCatalog}
+              brands={hotBrands}
             />
           </div>
 
@@ -310,6 +282,7 @@ function App() {
             products={products}
             loading={productsLoading}
             error={productsError}
+            searchTerm={searchTerm}
           />
         </div>
       )}

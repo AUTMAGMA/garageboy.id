@@ -1,0 +1,57 @@
+.admin-page .admin-select-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-page select.admin-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  height: 42px;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  padding: 0.625rem 2.25rem 0.625rem 0.75rem;
+  background-color: #020617;
+  color: #f1f5f9;
+  color-scheme: dark;
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.admin-page select.admin-select:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px #ef4444;
+}
+
+.admin-page select.admin-select:disabled {
+  background-color: #0f172a;
+  color: #64748b;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.admin-page select.admin-select option {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+.admin-page .admin-select-chevron {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.admin-page .admin-select-chevron-disabled {
+  color: #475569;
+}
