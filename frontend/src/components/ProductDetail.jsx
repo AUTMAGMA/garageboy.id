@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ArrowLeft, ZoomIn, Wrench, Layers } from 'lucide-react';
 import { BRANDS } from '../catalogData';
-import { asset } from '../lib/asset';
+import { productImageSrc, useFallbackImage } from '../lib/productImage';
 
 function brandLabel(key) {
   const b = BRANDS.find((x) => x.key === key);
@@ -42,7 +42,7 @@ export default function ProductDetail({ product, related, onBack, onOpenProduct 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Image */}
         <div className="fade-up d1 overflow-hidden rounded-lg border border-[#222] bg-[#0d0d0d]">
-          <img src={asset(product.img)} alt={product.name} className="h-full max-h-[440px] w-full object-cover" />
+          <img src={productImageSrc(product.img)} alt={product.name} onError={useFallbackImage} className="h-full max-h-[440px] w-full object-cover" />
         </div>
 
         {/* Info */}
@@ -83,7 +83,7 @@ export default function ProductDetail({ product, related, onBack, onOpenProduct 
           <div className="overflow-hidden rounded-lg border border-[#222]">
             <div className={`relative bg-white ${zoom ? 'cursor-zoom-out' : 'cursor-zoom-in'}`} onClick={() => setZoom((z) => !z)}
               style={{ maxHeight: '70vh', overflow: 'auto' }}>
-              <img src={asset(sheets[page])} alt={`part list ${page + 1}`} className={`mx-auto ${zoom ? 'w-[150%] max-w-none' : 'w-full'} transition-[width] duration-200`} />
+              <img src={productImageSrc(sheets[page])} alt={`part list ${page + 1}`} onError={useFallbackImage} className={`mx-auto ${zoom ? 'w-[150%] max-w-none' : 'w-full'} transition-[width] duration-200`} />
               <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1 rounded bg-black/60 px-2 py-1 text-[11px] text-white">
                 <ZoomIn size={12} /> {zoom ? 'Click to fit' : 'Click to zoom'}
               </div>
@@ -114,7 +114,7 @@ export default function ProductDetail({ product, related, onBack, onOpenProduct 
               <div key={p.id} onClick={() => onOpenProduct(p)}
                 className="group cursor-pointer overflow-hidden rounded border border-[#222] bg-[#111] text-center transition-colors hover:border-[#E31837]">
                 <div className="h-[150px] overflow-hidden bg-[#0d0d0d]">
-                  <img src={asset(p.img)} alt={p.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <img src={productImageSrc(p.img)} alt={p.name} loading="lazy" onError={useFallbackImage} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                 </div>
                 <div className="px-2 py-2.5">
                   <h4 className="text-[12px] text-[#ddd] transition-colors group-hover:text-[#E31837]">{p.name}</h4>

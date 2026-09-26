@@ -1,7 +1,9 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import PyMongoError
+from bson import ObjectId
 import os
 import logging
 from pathlib import Path
@@ -14,10 +16,29 @@ from datetime import datetime, timezone
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# MongoDB configuration. Keep the old names as aliases for existing deployments.
+mongo_url = os.environ.get('MONGODB_URI') or os.environ.get('MONGO_URL')
+db_name = os.environ.get('MONGODB_DB') or os.environ.get('DB_NAME', 'garageboy')
+client = AsyncIOMotorClient(mongo_url) if mongo_url else None
+db = client[db_name] if client else None
+
+
+def get_database():
+    if db is None:
+        raise HTTPException(
+            status_code=503,
+            detail='MongoDB is not configured. Set MONGODB_URI and MONGODB_DB.',
+        )
+    return db
+
+
+def serialize_product(document):
+    """Return the existing frontend product shape with a JSON-safe string id."""
+    product = dict(document)
+    mongo_id = product.pop('_id', None)
+    if not product.get('id') and mongo_id is not None:
+        product['id'] = str(mongo_id)
+    return product
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -44,6 +65,7 @@ async def root():
 
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
+    database = get_database()
     status_dict = input.model_dump()
     status_obj = StatusCheck(**status_dict)
     
@@ -51,13 +73,14 @@ async def create_status_check(input: StatusCheckCreate):
     doc = status_obj.model_dump()
     doc['timestamp'] = doc['timestamp'].isoformat()
     
-    _ = await db.status_checks.insert_one(doc)
+    _ = await database.status_checks.insert_one(doc)
     return status_obj
 
 @api_router.get("/status", response_model=List[StatusCheck])
 async def get_status_checks():
+    database = get_database()
     # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
+    status_checks = await database.status_checks.find({}, {"_id": 0}).to_list(1000)
     
     # Convert ISO string timestamps back to datetime objects
     for check in status_checks:
@@ -67,20 +90,40 @@ async def get_status_checks():
     return status_checks
 
 # Tambahkan rute ini di bawah rute /status yang sudah ada
-@api_router.get("/products")
+@api_router.get('/products')
 async def get_all_products():
-    """
-    Mengambil semua data produk dari MongoDB.
-    Ganti 'products' dengan nama collection asli di database lama Anda.
-    """
-    # Mengambil maksimal 1000 dokumen, mengecualikan '_id' agar format JSON valid di frontend
-    # Ganti db.products dengan nama collection Anda, misal db.barang atau db.katalog
-    product_list = await db.products.find({}, {"_id": 0}).to_list(length=1000)
-    
+    """Return product documents from the MongoDB products collection."""
+    database = get_database()
+    try:
+        documents = await database.products.find({}).to_list(length=1000)
+    except PyMongoError as exc:
+        logger.exception('Could not fetch products from MongoDB')
+        raise HTTPException(status_code=503, detail='Product database is unavailable') from exc
+
+    product_list = [serialize_product(document) for document in documents]
     return {
         "total_products": len(product_list),
         "data": product_list
     }
+
+
+@api_router.get('/products/{product_id}')
+async def get_product(product_id: str):
+    """Return one product by its existing id, or MongoDB _id for legacy records."""
+    database = get_database()
+    query = {'id': product_id}
+    if ObjectId.is_valid(product_id):
+        query = {'$or': [{'id': product_id}, {'_id': ObjectId(product_id)}]}
+
+    try:
+        document = await database.products.find_one(query)
+    except PyMongoError as exc:
+        logger.exception('Could not fetch product %s from MongoDB', product_id)
+        raise HTTPException(status_code=503, detail='Product database is unavailable') from exc
+
+    if document is None:
+        raise HTTPException(status_code=404, detail='Product not found')
+    return serialize_product(document)
 
 # Include the router in the main app
 app.include_router(api_router)
@@ -102,4 +145,5 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if client:
+        client.close()

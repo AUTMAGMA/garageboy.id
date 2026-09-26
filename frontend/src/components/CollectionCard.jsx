@@ -1,13 +1,13 @@
 import React from 'react';
 import { Layers } from 'lucide-react';
-import { asset } from '../lib/asset';
+import { productImageSrc, useFallbackImage } from '../lib/productImage';
 
 export default function CollectionCard({ item, onClick }) {
   return (
     <div onClick={() => onClick(item)}
       className="group cursor-pointer overflow-hidden rounded border border-[#222] bg-[#111] transition-colors hover:border-[#E31837]">
       <div className="h-[180px] overflow-hidden bg-white">
-        <img src={asset(item.thumb)} alt={item.title}
+        <img src={productImageSrc(item.thumb)} alt={item.title} onError={useFallbackImage}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
       </div>
       <div className="px-3 py-3 text-center">

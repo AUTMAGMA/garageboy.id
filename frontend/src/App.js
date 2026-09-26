@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import './App.css';
 
 import Header from './components/Header';
@@ -12,6 +12,7 @@ import Footer from './components/Footer';
 import Admin from './components/Admin';
 
 import { PRODUCTS as initialProducts, FEATURED } from './catalogData';
+import { fetchProducts } from './lib/productsApi';
 
 const DEFAULT_FILTERS = {
   brand: 'all',
@@ -19,6 +20,36 @@ const DEFAULT_FILTERS = {
   model: 'all',
   mod: 'all'
 };
+
+function readSavedProducts() {
+  try {
+    const savedProducts = JSON.parse(localStorage.getItem('garageboy_products') || '[]');
+    return Array.isArray(savedProducts) ? savedProducts : [];
+  } catch (error) {
+    console.error('Gagal membaca garageboy_products dari localStorage:', error);
+    return [];
+  }
+}
+
+function mergeProducts(fallbackProducts, apiProducts) {
+  const byId = new Map();
+  [...fallbackProducts, ...apiProducts].forEach((product, index) => {
+    if (product && typeof product === 'object') {
+      const key = product.id ? String(product.id) : `missing-id-${index}`;
+      byId.set(key, product);
+    }
+  });
+  return [...byId.values()];
+}
+
+function searchProducts(products, query) {
+  const normalizedQuery = query.trim().toLowerCase();
+  return products.filter((product) => (
+    `${product.name || ''} ${product.desc || ''} ${product.seriesLabel || ''} ${product.modelLabel || ''} ${product.brand || ''}`
+      .toLowerCase()
+      .includes(normalizedQuery)
+  ));
+}
 
 function App() {
   /*
@@ -32,31 +63,35 @@ function App() {
   const [selected, setSelected] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState(null);
+  const [fallbackProducts] = useState(() => [...readSavedProducts(), ...initialProducts]);
+  const [products, setProducts] = useState(fallbackProducts);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState(null);
 
-  /*
-   * Gabungkan produk custom dari localStorage
-   * dengan produk bawaan catalogData.js
-   */
-  const PRODUCTS = useMemo(() => {
-    let customProducts = [];
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchProducts(controller.signal)
+      .then((apiProducts) => {
+        setProducts(mergeProducts(fallbackProducts, apiProducts));
+        setProductsError(null);
+      })
+      .catch((error) => {
+        if (error.name === 'AbortError') return;
+        setProducts(mergeProducts(fallbackProducts, []));
+        setProductsError(error.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setProductsLoading(false);
+      });
 
-    try {
-      const storedProducts = localStorage.getItem('garageboy_products');
+    return () => controller.abort();
+  }, [fallbackProducts]);
 
-      if (storedProducts) {
-        customProducts = JSON.parse(storedProducts);
-      }
-    } catch (error) {
-      console.error(
-        'Gagal membaca garageboy_products dari localStorage:',
-        error
-      );
-
-      customProducts = [];
+  useEffect(() => {
+    if (view === 'search' && searchTerm.trim()) {
+      setSearchResults(searchProducts(products, searchTerm));
     }
-
-    return [...customProducts, ...initialProducts];
-  }, []);
+  }, [products, searchTerm, view]);
 
   /*
    * Produk yang ditampilkan pada bagian
@@ -76,14 +111,14 @@ function App() {
 
     return ids
       .map((cid) =>
-        PRODUCTS.find(
+        products.find(
           (p) =>
             p.series === cid &&
             p.mod === 'bodykit'
         )
       )
       .filter(Boolean);
-  }, [PRODUCTS]);
+  }, [products]);
 
   /*
    * ============================================================
@@ -176,17 +211,7 @@ function App() {
       return;
     }
 
-    const res = PRODUCTS.filter((p) =>
-      `
-        ${p.name || ''}
-        ${p.desc || ''}
-        ${p.seriesLabel || ''}
-        ${p.modelLabel || ''}
-        ${p.brand || ''}
-      `
-        .toLowerCase()
-        .includes(q)
-    );
+    const res = searchProducts(products, q);
 
     setSearchResults(res);
     setView('search');
@@ -241,6 +266,12 @@ function App() {
             Latest Modifications
           </SectionHeader>
 
+          {productsError && (
+            <p role="status" className="mx-auto mb-4 w-[90%] max-w-[1280px] text-sm text-white/50">
+              Product API is unavailable. Showing the saved catalog when available.
+            </p>
+          )}
+
           <div className="fade-up mx-auto mb-16 grid w-[90%] max-w-[1280px] grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
 
             {popular.map((p) => (
@@ -250,6 +281,13 @@ function App() {
                 onClick={setSelected}
               />
             ))}
+
+            {popular.length === 0 && productsLoading && (
+              <p role="status" className="col-span-full py-6 text-center text-sm text-white/50">Loading products…</p>
+            )}
+            {popular.length === 0 && !productsLoading && productsError && (
+              <p role="alert" className="col-span-full py-6 text-center text-sm text-white/50">Product catalog could not be loaded.</p>
+            )}
 
           </div>
 
@@ -269,6 +307,9 @@ function App() {
             filters={filters}
             setFilter={setFilters}
             onOpen={setSelected}
+            products={products}
+            loading={productsLoading}
+            error={productsError}
           />
         </div>
       )}
@@ -288,7 +329,15 @@ function App() {
             {(searchResults || []).length} products
           </p>
 
-          {(searchResults || []).length === 0 ? (
+          {(searchResults || []).length === 0 && productsLoading ? (
+            <div role="status" className="py-12 text-center text-[16px] text-[#888]">
+              Loading products…
+            </div>
+          ) : (searchResults || []).length === 0 && productsError ? (
+            <div role="alert" className="py-12 text-center text-[16px] text-[#888]">
+              Product catalog could not be loaded.
+            </div>
+          ) : (searchResults || []).length === 0 ? (
 
             <div className="py-12 text-center text-[16px] text-[#888]">
               No products found

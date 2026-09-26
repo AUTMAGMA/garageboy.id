@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BRANDS, MODS, PRODUCTS as initialProducts } from '../catalogData';
+import { BRANDS, MODS } from '../catalogData';
 import ProductCard from './ProductCard';
 
 function Row({ label, options, value, onSelect, valueKey = 'key', labelKey = 'label' }) {
@@ -24,38 +24,32 @@ function Row({ label, options, value, onSelect, valueKey = 'key', labelKey = 'la
   );
 }
 
-export default function Catalog({ filters, setFilter, onOpen }) {
+export default function Catalog({ filters, setFilter, onOpen, products = [], loading = false, error = null }) {
   const { brand, series, model, mod } = filters;
-
-  // Gabungkan produk dari localStorage dengan initialProducts
-  const PRODUCTS = useMemo(() => {
-    const customProducts = JSON.parse(localStorage.getItem('garageboy_products')) || [];
-    return [...customProducts, ...initialProducts];
-  }, []);
 
   // dynamic series options for the selected brand
   const seriesOptions = useMemo(() => {
-    const list = PRODUCTS.filter((p) => brand === 'all' || p.brand === brand);
+    const list = products.filter((p) => brand === 'all' || p.brand === brand);
     const seen = new Map();
     list.forEach((p) => { if (!seen.has(p.seriesLabel)) seen.set(p.seriesLabel, true); });
     return [{ key: 'all', label: 'All' }, ...[...seen.keys()].map((s) => ({ key: s, label: s }))];
-  }, [PRODUCTS, brand]);
+  }, [products, brand]);
 
   // dynamic model options for brand + series
   const modelOptions = useMemo(() => {
-    const list = PRODUCTS.filter((p) =>
+    const list = products.filter((p) =>
       (brand === 'all' || p.brand === brand) && (series === 'all' || p.seriesLabel === series));
     const seen = new Map();
     list.forEach((p) => { if (p.modelLabel && !seen.has(p.modelLabel)) seen.set(p.modelLabel, true); });
     return [{ key: 'all', label: 'All' }, ...[...seen.keys()].map((m) => ({ key: m, label: m }))];
-  }, [PRODUCTS, brand, series]);
+  }, [products, brand, series]);
 
-  const items = useMemo(() => PRODUCTS.filter((p) =>
+  const items = useMemo(() => products.filter((p) =>
     (brand === 'all' || p.brand === brand) &&
     (series === 'all' || p.seriesLabel === series) &&
     (model === 'all' || p.modelLabel === model) &&
     (mod === 'all' || p.mod === mod)
-  ), [PRODUCTS, brand, series, model, mod]);
+  ), [products, brand, series, model, mod]);
 
   return (
     <div className="mx-auto my-8 w-[90%] max-w-[1280px]">
@@ -70,7 +64,17 @@ export default function Catalog({ filters, setFilter, onOpen }) {
           onSelect={(v) => setFilter({ brand, series, model, mod: v })} />
       </div>
 
-      {items.length === 0 ? (
+      {error && (
+        <p role="status" className="mb-4 text-sm text-white/50">
+          Product API is unavailable. Showing the saved catalog when available.
+        </p>
+      )}
+
+      {items.length === 0 && loading ? (
+        <div role="status" className="py-12 text-center text-[16px] text-[#888]">Loading products…</div>
+      ) : items.length === 0 && error ? (
+        <div role="alert" className="py-12 text-center text-[16px] text-[#888]">Product catalog could not be loaded.</div>
+      ) : items.length === 0 ? (
         <div className="py-12 text-center text-[16px] text-[#888]">No products found for selected filters</div>
       ) : (
         <>

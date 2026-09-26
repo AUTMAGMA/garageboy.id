@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
-import { asset } from '../lib/asset';
+import { productImageSrc, useFallbackImage } from '../lib/productImage';
 
 export default function CatalogViewer({ item, onClose }) {
   const [page, setPage] = useState(0);
@@ -43,7 +43,7 @@ export default function CatalogViewer({ item, onClose }) {
         {/* page image */}
         <div className={`relative flex-1 overflow-auto bg-white ${zoom ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
           onClick={() => setZoom((z) => !z)}>
-          <img src={asset(item.pages[page])} alt={`${item.title} page ${page + 1}`}
+          <img src={productImageSrc(item.pages[page])} alt={`${item.title} page ${page + 1}`} onError={useFallbackImage}
             className={`mx-auto ${zoom ? 'w-[160%] max-w-none' : 'w-full'} transition-[width] duration-200`} />
           <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1 rounded bg-black/60 px-2 py-1 text-[11px] text-white">
             <ZoomIn size={12} /> {zoom ? 'Click to fit' : 'Click to zoom'}

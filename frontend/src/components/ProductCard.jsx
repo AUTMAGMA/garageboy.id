@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link2 } from 'lucide-react';
-import { asset } from '../lib/asset';
+import { productImageSrc, useFallbackImage } from '../lib/productImage';
 
 export default function ProductCard({ product, onClick }) {
   return (
@@ -10,9 +10,10 @@ export default function ProductCard({ product, onClick }) {
     >
       <div className="relative h-[190px] overflow-hidden bg-[#0d0d0d]">
         <img
-          src={asset(product.img)}
+          src={productImageSrc(product.img)}
           alt={product.name}
           loading="lazy"
+          onError={useFallbackImage}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         {/* hover overlay: link icon */}
