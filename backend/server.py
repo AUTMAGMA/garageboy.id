@@ -7,6 +7,7 @@ from bson import ObjectId
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Literal
 import bcrypt
+import base64
 import jwt
 import re
 from datetime import datetime, timezone, timedelta
@@ -16,8 +17,7 @@ from pathlib import Path
 import uuid
 import io
 import warnings
-import boto3
-from botocore.exceptions import BotoCoreError, ClientError
+import requests
 from PIL import Image, ImageOps, UnidentifiedImageError
 from PIL.Image import DecompressionBombError
 from defusedxml import ElementTree as SafeET
@@ -776,19 +776,40 @@ async def delete_home_carousel(item_id: str, _admin=Depends(require_admin)):
 
 @api_router.get('/admin/uploads/status')
 async def admin_upload_status(_admin=Depends(require_admin)):
-    bucket = os.environ.get('S3_BUCKET')
-    public_base = os.environ.get('S3_PUBLIC_BASE_URL', '').rstrip('/')
-    configured = bool(bucket and public_base)
-    result = {'configured': configured}
-    if configured:
-        result.update({'provider': 's3-compatible' if os.environ.get('S3_ENDPOINT_URL') else 'aws-s3', 'bucket': bucket, 'public_base_url': public_base})
-    else:
-        result['message'] = 'Image storage belum dikonfigurasi. Gunakan URL gambar atau atur S3_BUCKET dan S3_PUBLIC_BASE_URL.'
+    _, repository, branch, public_base, configured = github_upload_configuration()
+    result = {
+        'configured': configured,
+        'provider': 'github',
+        'repository': repository,
+        'branch': branch,
+        'upload_path': 'frontend/public/uploads/',
+        'public_base_url': public_base,
+    }
+    if not configured:
+        result['message'] = 'GitHub image storage belum dikonfigurasi. Atur GITHUB_TOKEN, GITHUB_REPOSITORY, dan GITHUB_BRANCH di backend.'
     return result
 
 
 MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_IMAGE_EDGE = 2400
+GITHUB_REPOSITORY_DEFAULT = 'AUTMAGMA/garageboy.id'
+GITHUB_BRANCH_DEFAULT = 'main'
+FRONTEND_BASE_URL_DEFAULT = 'https://garageboy-web.vercel.app'
+GITHUB_UPLOAD_PATH = 'frontend/public/uploads'
+
+
+def github_upload_configuration():
+    token = (os.environ.get('GITHUB_TOKEN') or '').strip()
+    repository = (os.environ.get('GITHUB_REPOSITORY') or GITHUB_REPOSITORY_DEFAULT).strip()
+    branch = (os.environ.get('GITHUB_BRANCH') or GITHUB_BRANCH_DEFAULT).strip()
+    public_base = (os.environ.get('FRONTEND_BASE_URL') or FRONTEND_BASE_URL_DEFAULT).strip().rstrip('/')
+    repository_valid = re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository) is not None
+    branch_valid = re.fullmatch(r'[A-Za-z0-9_.\-/]+', branch) is not None and not branch.startswith('/')
+    public_base_valid = re.fullmatch(r'https://[^/\s]+', public_base, flags=re.IGNORECASE) is not None
+    configured = bool(token and repository_valid and branch_valid and public_base_valid)
+    return token, repository, branch, public_base, configured
+
+
 RASTER_FORMATS = {
     'image/jpeg': ({'.jpg', '.jpeg'}, 'JPEG'),
     'image/png': ({'.png'}, 'PNG'),
@@ -896,25 +917,40 @@ async def prepare_uploaded_image(file):
 @api_router.post('/admin/uploads')
 async def admin_upload_image(file: UploadFile = File(...), _admin=Depends(require_admin)):
     content, extension, content_type = await prepare_uploaded_image(file)
-    bucket = os.environ.get('S3_BUCKET')
-    public_base = os.environ.get('S3_PUBLIC_BASE_URL', '').rstrip('/')
-    if not bucket or not public_base:
-        raise HTTPException(status_code=503, detail='Image storage belum dikonfigurasi. Gunakan URL gambar atau atur S3_BUCKET dan S3_PUBLIC_BASE_URL.')
-    object_key = f'uploads/{uuid.uuid4()}.{extension}'
+    token, repository, branch, public_base, configured = github_upload_configuration()
+    if not configured:
+        raise HTTPException(status_code=503, detail='GitHub image storage belum dikonfigurasi. Atur GITHUB_TOKEN, GITHUB_REPOSITORY, dan GITHUB_BRANCH di backend.')
+
+    filename = f'{uuid.uuid4().hex}.{extension}'
+    repository_path = f'{GITHUB_UPLOAD_PATH}/{filename}'
+    api_url = f'https://api.github.com/repos/{repository}/contents/{repository_path}'
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': f'Bearer {token}',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'garageboy-image-uploader',
+    }
+    payload = {
+        'message': f'chore: upload image {filename}',
+        'content': base64.b64encode(content).decode('ascii'),
+        'branch': branch,
+    }
     try:
-        s3 = boto3.client(
-            's3', endpoint_url=os.environ.get('S3_ENDPOINT_URL') or None,
-            region_name=os.environ.get('S3_REGION') or None,
-        )
-        metadata = {'content-security-policy': "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:"} if extension == 'svg' else None
-        await run_in_threadpool(
-            s3.put_object, Bucket=bucket, Key=object_key, Body=content, ContentType=content_type,
-            ContentDisposition='inline', CacheControl='public, max-age=31536000, immutable', Metadata=metadata or {},
+        response = await run_in_threadpool(
+            requests.put, api_url, headers=headers, json=payload, timeout=30,
         )
     except Exception as exc:
-        logger.warning('Image upload failed (exception type: %s)', type(exc).__name__)
-        raise HTTPException(status_code=502, detail='Upload gambar gagal. Periksa konfigurasi object storage.')
-    return {'url': f'{public_base}/{object_key}', 'content_type': content_type}
+        logger.warning('GitHub image upload failed (exception type: %s)', type(exc).__name__)
+        raise HTTPException(status_code=502, detail='Upload gambar ke GitHub gagal. Periksa koneksi dan konfigurasi backend.') from exc
+    if response.status_code not in (200, 201):
+        logger.warning('GitHub image upload failed (HTTP status: %s)', response.status_code)
+        raise HTTPException(status_code=502, detail='Upload gambar ke GitHub gagal. Pastikan token memiliki permission Contents: Read and Write.')
+    return {
+        'url': f'{public_base}/uploads/{filename}',
+        'content_type': content_type,
+        'path': repository_path,
+        'branch': branch,
+    }
 
 
 @api_router.get('/vehicle-models')

@@ -196,7 +196,7 @@ function Admin() {
     try {
       const result = await uploadAdminImage(file, token);
       onUploaded(result.url);
-      notify('Gambar berhasil diunggah. Simpan perubahan untuk menerapkan URL.');
+      notify('Gambar sudah di-commit ke GitHub. Tunggu deploy frontend agar URL publik aktif, lalu simpan perubahan.');
     } catch (uploadError) {
       setError(uploadError.message);
     } finally {
