@@ -1,7 +1,7 @@
 """Build a canonical sitemap from the published catalog documents."""
 
 from datetime import date, datetime, timezone
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 import unicodedata
 import re
 import xml.etree.ElementTree as ET
@@ -43,19 +43,54 @@ def _lastmod(document):
     return _date_value(document.get('updated_at')) or _date_value(document.get('created_at'))
 
 
+def canonical_sitemap_url(value):
+    """Normalize a sitemap location without ever prefixing an absolute URL."""
+    candidate = str(value or '').strip()
+    if not candidate:
+        return None
+
+    origin = urlsplit(CANONICAL_ORIGIN)
+    parsed = urlsplit(candidate)
+    if parsed.scheme or parsed.netloc:
+        if parsed.scheme and parsed.scheme.lower() not in ('http', 'https'):
+            return None
+        if parsed.hostname != origin.hostname or parsed.username or parsed.password:
+            return None
+        path = parsed.path or '/'
+    else:
+        parsed = urlsplit(urljoin(f'{CANONICAL_ORIGIN}/', candidate))
+        if parsed.hostname != origin.hostname:
+            return None
+        path = parsed.path or '/'
+
+    # Reject already-corrupted paths such as /https://www.garageboy.id/brands/...
+    decoded_path = unquote(path)
+    if re.search(r'https?://', decoded_path, re.IGNORECASE):
+        return None
+    if origin.netloc.lower() in decoded_path.lower():
+        return None
+
+    normalized = urlsplit(urljoin(f'{CANONICAL_ORIGIN}/', path))
+    if normalized.hostname != origin.hostname:
+        return None
+    normalized_path = quote(normalized.path or '/', safe="/%:@!$&'()*+,;=-._~")
+    return urlunsplit((origin.scheme, origin.netloc, normalized_path, '', ''))
+
+
 def build_sitemap_xml(products, brands, categories, models, generations):
     """Return XML for public pages backed by at least one published product."""
     products = [row for row in products if row and row.get('id') and row.get('published') is not False]
     brand_by_id = {str(row.get('id')): row for row in brands if row and row.get('id') and row.get('published') is not False}
-    category_by_id = {str(row.get('id')): row for row in categories if row and row.get('id')}
-    model_by_id = {str(row.get('id')): row for row in models if row and row.get('id')}
-    generation_by_id = {str(row.get('id')): row for row in generations if row and row.get('id')}
+    category_by_id = {str(row.get('id')): row for row in categories if row and row.get('id') and row.get('published') is not False}
+    model_by_id = {str(row.get('id')): row for row in models if row and row.get('id') and row.get('published') is not False}
+    generation_by_id = {str(row.get('id')): row for row in generations if row and row.get('id') and row.get('published') is not False}
 
     urls = {}
 
-    def add(path, modified=None):
-        path = '/' + str(path or '').lstrip('/')
-        normalized = path.rstrip('/') or '/'
+    def add(location, modified=None):
+        normalized = canonical_sitemap_url(location)
+        if not normalized:
+            return
         previous = urls.get(normalized)
         if previous is None or (modified and (not previous or modified > previous)):
             urls[normalized] = modified
@@ -97,9 +132,10 @@ def build_sitemap_xml(products, brands, categories, models, generations):
             add(f'/categories/{category_slug}/{_id(category_id)}', modified)
 
     root = ET.Element(f'{{{SITEMAP_NAMESPACE}}}urlset')
-    for path, modified in sorted(urls.items()):
+    for location, modified in sorted(urls.items()):
         url_node = ET.SubElement(root, f'{{{SITEMAP_NAMESPACE}}}url')
-        ET.SubElement(url_node, f'{{{SITEMAP_NAMESPACE}}}loc').text = f'{CANONICAL_ORIGIN}{path}'
+        ET.SubElement(url_node, f'{{{SITEMAP_NAMESPACE}}}loc').text = location
         if modified:
             ET.SubElement(url_node, f'{{{SITEMAP_NAMESPACE}}}lastmod').text = modified
+    ET.indent(root, space='  ')
     return ET.tostring(root, encoding='utf-8', xml_declaration=True).decode('utf-8')
