@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, status, UploadFile, File
+from fastapi.responses import Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -23,6 +24,10 @@ from PIL.Image import DecompressionBombError
 from defusedxml import ElementTree as SafeET
 from xml.etree import ElementTree as ET
 from starlette.concurrency import run_in_threadpool
+if __package__:
+    from .seo_sitemap import build_sitemap_xml
+else:
+    from seo_sitemap import build_sitemap_xml
 
 
 ROOT_DIR = Path(__file__).parent
@@ -965,6 +970,28 @@ async def get_vehicle_generations(model_id: Optional[str] = None):
     query = {'model_id': model_id} if model_id else {}
     rows = await get_database().vehicle_generations.find(query, {'_id': 0}).sort([('sort_order', 1), ('name', 1)]).to_list(1000)
     return rows
+
+
+@api_router.get('/seo/sitemap.xml', include_in_schema=False)
+async def get_public_sitemap():
+    """Serve a live sitemap generated from the current published MongoDB catalog."""
+    database = get_database()
+    try:
+        products = await database.products.find({'published': {'$ne': False}}).to_list(length=1000)
+        brands = await database.brands.find({'published': {'$ne': False}}).to_list(length=1000)
+        categories = await database.product_categories.find({}).to_list(length=1000)
+        models = await database.vehicle_models.find({}).to_list(length=1000)
+        generations = await database.vehicle_generations.find({}).to_list(length=1000)
+    except PyMongoError as exc:
+        logger.exception('Could not build the public sitemap from MongoDB')
+        raise HTTPException(status_code=503, detail='Sitemap is temporarily unavailable') from exc
+
+    xml = build_sitemap_xml(products, brands, categories, models, generations)
+    return Response(
+        content=xml,
+        media_type='application/xml',
+        headers={'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600'},
+    )
 
 # Include the router in the main app
 app.include_router(api_router)

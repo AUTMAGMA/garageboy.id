@@ -1,7 +1,7 @@
 import React from 'react';
 import { asset } from '../lib/asset';
 
-export default function HotBrands({ onOpenBrand, brands = [] }) {
+export default function HotBrands({ onOpenBrand, getBrandHref, brands = [] }) {
   const useBrandLogoFallback = (event) => {
     const image = event.currentTarget;
     if (image.dataset.fallbackApplied !== 'true') {
@@ -16,9 +16,14 @@ export default function HotBrands({ onOpenBrand, brands = [] }) {
     <div className="mx-auto w-[90%] max-w-[1280px] rounded bg-white px-5 py-9">
       <div className="grid grid-cols-2 gap-x-4 gap-y-8 text-center sm:grid-cols-3 md:grid-cols-5">
         {brands.map((b) => (
-          <div
+          <a
             key={b.id}
-            onClick={() => onOpenBrand(b.brand_id)}
+            href={getBrandHref?.(b.brand_id) || '/catalog'}
+            onClick={(event) => {
+              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              onOpenBrand(b.brand_id);
+            }}
             className="group flex cursor-pointer flex-col items-center justify-center"
           >
             <div
@@ -42,7 +47,7 @@ export default function HotBrands({ onOpenBrand, brands = [] }) {
             <p className="mt-1 text-[12px] font-medium text-[#555] group-hover:text-[#E31837]">
               {b.brandLabel}
             </p>
-          </div>
+          </a>
         ))}
       </div>
     </div>

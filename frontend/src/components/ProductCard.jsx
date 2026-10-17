@@ -1,12 +1,18 @@
 import React from 'react';
 import { Link2 } from 'lucide-react';
 import { productImageSrc, useFallbackImage } from '../lib/productImage';
+import { productPath } from '../lib/seoRoutes';
 
 export default function ProductCard({ product, onClick }) {
   return (
-    <div
-      onClick={() => onClick(product)}
-      className="group cursor-pointer overflow-hidden rounded border border-[#222] bg-[#111] text-center transition-colors hover:border-[#E31837]"
+    <a
+      href={productPath(product)}
+      onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        onClick(product);
+      }}
+      className="group block cursor-pointer overflow-hidden rounded border border-[#222] bg-[#111] text-center transition-colors hover:border-[#E31837]"
     >
       <div className="relative h-[190px] overflow-hidden bg-[#0d0d0d]">
         <img
@@ -28,6 +34,6 @@ export default function ProductCard({ product, onClick }) {
           {product.name}
         </h4>
       </div>
-    </div>
+    </a>
   );
 }

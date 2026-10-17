@@ -14,6 +14,13 @@ import Admin from './components/Admin';
 import { PRODUCTS as initialProducts } from './catalogData';
 import { fetchProducts, fetchHotBrands, fetchLatestModifications, fetchHomeCarousel } from './lib/productsApi';
 import { filtersFromCarouselDestination, matchesCatalogFilters, productMatchesSearch } from './lib/catalogFilters';
+import { applyPageSeo, getPageSeo } from './lib/seo';
+import {
+  brandPath,
+  catalogPathFromFilters,
+  parseSeoRoute,
+  productPath,
+} from './lib/seoRoutes';
 
 const DEFAULT_FILTERS = {
   brand: 'all',
@@ -48,6 +55,9 @@ function App() {
   const [view, setView] = useState('home');
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [selected, setSelected] = useState(null);
+  const [route, setRoute] = useState(() => parseSeoRoute(window.location));
+  const [productReturnPath, setProductReturnPath] = useState('/');
+  const [productReturnView, setProductReturnView] = useState('home');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [fallbackProducts] = useState(() => [...readSavedProducts(), ...initialProducts]);
@@ -90,6 +100,77 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const syncRoute = () => setRoute(parseSeoRoute(window.location));
+    window.addEventListener('popstate', syncRoute);
+    window.addEventListener('hashchange', syncRoute);
+    return () => {
+      window.removeEventListener('popstate', syncRoute);
+      window.removeEventListener('hashchange', syncRoute);
+    };
+  }, []);
+
+  useEffect(() => {
+    const routePath = `${window.location.pathname}${window.location.search}`;
+    applyPageSeo(getPageSeo(route, products, productsLoading, routePath));
+  }, [route, products, productsLoading]);
+
+  useEffect(() => {
+    if (route.type === 'admin') return;
+    setSearchResults(null);
+    setSelected(null);
+
+    if (route.type === 'home') {
+      setView('home');
+      setFilters(DEFAULT_FILTERS);
+      setSearchTerm('');
+      return;
+    }
+    if (route.type === 'product') {
+      setView(productReturnView || 'home');
+      const product = products.find((row) => String(row.id) === String(route.id));
+      if (product) setSelected(product);
+      return;
+    }
+    if (route.type === 'search') {
+      const query = route.query || '';
+      setView('search');
+      const searchFilters = { ...DEFAULT_FILTERS, ...route.filters };
+      setFilters(searchFilters);
+      setSearchTerm(query);
+      setSearchResults(searchProducts(products, query, searchFilters));
+      return;
+    }
+    if (route.type === 'catalog') {
+      setView('catalog');
+      setFilters({ ...DEFAULT_FILTERS, ...route.filters });
+      return;
+    }
+    if (route.type === 'brand') {
+      setView('catalog');
+      setFilters({ ...DEFAULT_FILTERS, brand: route.id });
+      return;
+    }
+    if (route.type === 'category') {
+      setView('catalog');
+      setFilters({ ...DEFAULT_FILTERS, mod: route.id });
+      return;
+    }
+    if (route.type === 'vehicleModel' || route.type === 'vehicleGeneration') {
+      const product = products.find((row) => String(row.vehicle_model_id) === String(route.modelId)
+        && (route.type !== 'vehicleGeneration' || String(row.vehicle_generation_id) === String(route.generationId)));
+      setView('catalog');
+      setFilters({
+        ...DEFAULT_FILTERS,
+        brand: product?.brand_id || 'all',
+        series: route.modelId,
+        model: route.type === 'vehicleGeneration' ? route.generationId : 'all',
+      });
+      return;
+    }
+    setView('home');
+  }, [route, products, productsLoading, productReturnView]);
+
+  useEffect(() => {
     if (view === 'search' && searchTerm.trim()) {
       setSearchResults(searchProducts(products, searchTerm, filters));
     }
@@ -115,8 +196,19 @@ function App() {
    * ============================================================
    */
 
+  const navigateTo = (path, replace = false) => {
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (current !== path) {
+      const method = replace ? 'replaceState' : 'pushState';
+      window.history[method]({}, '', path);
+    }
+    setRoute(parseSeoRoute(window.location));
+  };
+
   const showHome = () => {
+    navigateTo('/');
     setView('home');
+    setFilters(DEFAULT_FILTERS);
     setSearchResults(null);
     setSearchTerm('');
 
@@ -133,10 +225,12 @@ function App() {
    */
 
   const openCatalog = (brand) => {
-    setFilters({
+    const nextFilters = {
       ...DEFAULT_FILTERS,
       brand: brand || 'all'
-    });
+    };
+    navigateTo(catalogPathFromFilters(nextFilters, products));
+    setFilters(nextFilters);
 
     setSearchResults(null);
     setView('catalog');
@@ -158,7 +252,9 @@ function App() {
       window.location.assign(c.destination.custom_url);
       return;
     }
-    setFilters(filtersFromCarouselDestination(c));
+    const nextFilters = filtersFromCarouselDestination(c);
+    navigateTo(catalogPathFromFilters(nextFilters, products));
+    setFilters(nextFilters);
 
     setSearchResults(null);
     setView('catalog');
@@ -186,11 +282,45 @@ function App() {
 
     setSearchResults(res);
     setView('search');
+    const params = new URLSearchParams({ q: searchTerm.trim() });
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && value !== 'all') params.set(key, value);
+    });
+    navigateTo(`/search?${params.toString()}`);
 
     window.scrollTo({
       top: 0,
       behavior: 'smooth'
     });
+  };
+
+  const openProduct = (product) => {
+    setProductReturnPath(`${window.location.pathname}${window.location.search}` || '/');
+    setProductReturnView(view);
+    setSelected(product);
+    navigateTo(productPath(product));
+  };
+
+  const closeProduct = () => {
+    setSelected(null);
+    navigateTo(productReturnPath || '/');
+  };
+
+  const setCatalogFilter = (nextFilters) => {
+    navigateTo(catalogPathFromFilters(nextFilters, products));
+    setFilters(nextFilters);
+    setSearchResults(null);
+    setView('catalog');
+  };
+
+  const getBrandHref = (brandId) => {
+    const product = products.find((row) => String(row.brand_id) === String(brandId));
+    return product ? brandPath({ id: brandId, name: product.brandLabel, slug: product.brandSlug }) : '/catalog';
+  };
+
+  const getCarouselHref = (item) => {
+    if (item.destination_type === 'custom_url' && item.destination?.custom_url) return item.destination.custom_url;
+    return catalogPathFromFilters(filtersFromCarouselDestination(item), products);
   };
 
   /*
@@ -220,6 +350,7 @@ function App() {
             <Carousel
               items={carouselItems}
               onOpen={openFromCarousel}
+              getHref={getCarouselHref}
             />
           </div>
 
@@ -230,6 +361,7 @@ function App() {
           <div className="fade-up">
             <HotBrands
               onOpenBrand={openCatalog}
+              getBrandHref={getBrandHref}
               brands={hotBrands}
             />
           </div>
@@ -250,7 +382,7 @@ function App() {
               <ProductCard
                 key={p.id}
                 product={p}
-                onClick={setSelected}
+                onClick={openProduct}
               />
             ))}
 
@@ -277,8 +409,8 @@ function App() {
         >
           <Catalog
             filters={filters}
-            setFilter={setFilters}
-            onOpen={setSelected}
+            setFilter={setCatalogFilter}
+            onOpen={openProduct}
             products={products}
             loading={productsLoading}
             error={productsError}
@@ -324,7 +456,7 @@ function App() {
                 <ProductCard
                   key={p.id}
                   product={p}
-                  onClick={setSelected}
+                  onClick={openProduct}
                 />
               ))}
 
@@ -348,7 +480,7 @@ function App() {
       {selected && (
         <ProductModal
           product={selected}
-          onClose={() => setSelected(null)}
+          onClose={closeProduct}
         />
       )}
 

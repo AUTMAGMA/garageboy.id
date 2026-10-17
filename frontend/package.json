@@ -65,7 +65,7 @@
   "homepage": "https://autmagma.github.io/garageboy.id",
   "scripts": {
     "start": "craco start",
-    "build": "craco build",
+    "build": "craco build && node scripts/prerender-seo.cjs",
     "test": "craco test",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"

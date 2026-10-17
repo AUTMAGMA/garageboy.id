@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { productImageSrc, useFallbackImage } from '../lib/productImage';
 import { asset } from '../lib/asset';
 
-export default function Carousel({ items, onOpen }) {
+export default function Carousel({ items, onOpen, getHref }) {
   const visible = 4;
   const maxIndex = Math.max(0, items.length - visible);
   const [index, setIndex] = useState(0);
@@ -29,7 +29,11 @@ export default function Carousel({ items, onOpen }) {
         <div className="flex gap-[15px] transition-transform duration-500 ease-in-out"
           style={{ transform: `translateX(-${index * 25}%)` }}>
           {items.map((c) => (
-            <div key={c.id} onClick={() => onOpen(c)}
+            <a key={c.id} href={getHref?.(c) || '/catalog'} onClick={(event) => {
+              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              onOpen(c);
+            }}
               className="group relative flex h-[200px] min-w-[calc(25%-12px)] cursor-pointer flex-col overflow-hidden rounded border border-[#222] bg-[#0d0d0d]">
               <div className="relative flex-1 overflow-hidden">
                 <img src={productImageSrc(c.img)} alt={c.title}
@@ -51,7 +55,7 @@ export default function Carousel({ items, onOpen }) {
                 <div className="text-[14px] font-bold text-white">{c.title}</div>
                 {c.sub && <div className="text-[11px] text-[#aaa]">{c.sub}</div>}
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </div>
